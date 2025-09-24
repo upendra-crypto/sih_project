@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Temple Crowd Management — Enhanced System</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+<style>
+  :root {
+    --primary: #2b8fe6;
+    --primary-light: #70b8ff;
+    --primary-bg: #eef6ff;
+    --secondary: #6b7280;
+    --background: #f4f7fb;
+    --card-bg: #ffffff;
+    --text-primary: #071124;
+    --text-muted: #6b7280;
+    --success: #16a34a;
+    --success-bg: #dcfce7;
+    --warning: #f59e0b;
+    --warning-bg: #fef3c7;
+    --danger: #e53e3e;
+    --danger-bg: #fee2e2;
+    --border-light: #eef6fb;
+    --shadow: 0 10px 30px rgba(12, 24, 48, 0.06);
+    --radius: 8px;
+    --radius-lg: 12px;
+    --spacing: 12px;
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.125rem;
+    --green: #16a34a;
+    --yellow: #f59e0b;
+    --red: #e53e3e;
+  }
+  
+  html.dark-mode {
+    --background: #0f172a;
+    --card-bg: #1e293b;
+    --text-primary: #f1f5f9;
+    --text-muted: #94a3b8;
+    --border-light: #334155;
+    --primary-bg: #1e3a8a;
+    --success-bg: #14532d;
+    --warning-bg: #78350f;
+    --danger-bg: #7f1d1d;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    margin: 0;
+    background: var(--background);
+    color: var(--text-primary);
+    line-height: 1.6;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--spacing);
+  }
+
+  .header {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: var(--spacing);
+    align-items: center;
+    margin-bottom: var(--spacing);
+    padding: var(--spacing);
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+  }
+
+  .header-title { text-align: left; }
+  .header-title h1 {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+  }
+  .header-title p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+  }
+  .header-actions {
+    justify-self: end;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .temple-switcher {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+  .temple-switcher h2 {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--primary);
+    white-space: nowrap;
+  }
+
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    gap: var(--spacing);
+  }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing);
+    box-shadow: var(--shadow);
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+  }
+
+  .card h3 {
+    margin: 0 0 var(--spacing) 0;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+  }
+  
+  .card h4 {
+      margin: 12px 0 8px 0;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-muted);
+  }
+
+  #map {
+    height: 520px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-light);
+  }
+
+  .map-controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: var(--spacing);
+  }
+
+  .btn {
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    border: none;
+    background: var(--primary-bg);
+    color: var(--primary);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: var(--font-size-sm);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .btn:hover {
+    background: var(--primary);
+    color: white;
+    transform: translateY(-1px);
+  }
+  
+  .btn.active {
+    background: var(--primary);
+    color: white;
+  }
+  
+  .btn.small {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .input {
+    width: 100%;
+    padding: 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-light);
+    font-size: var(--font-size-sm);
+    transition: border-color 0.2s ease;
+    background: var(--background);
+    color: var(--text-primary);
+  }
+
+  .input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(43, 143, 230, 0.1);
+  }
+
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing);
+  }
+
+  .queue-container {
+    max-height: 200px;
+    overflow-y: auto;
+    border-radius: var(--radius);
+    padding-right: 8px;
+  }
+
+  .queue-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    border-radius: var(--radius);
+    background: var(--background);
+    margin-bottom: 6px;
+    border: 1px solid var(--border-light);
+    animation: slideIn 0.3s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .status-chip {
+    background: var(--success-bg);
+    color: var(--success);
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.75rem;
+  }
+  .status-chip.warning { background: var(--warning-bg); color: var(--warning); }
+  .status-chip.danger { background: var(--danger-bg); color: var(--danger); }
+
+  .parking-item {
+    display: flex; align-items: center; gap: var(--spacing); margin-bottom: 8px;
+  }
+  .parking-label { width: 80px; font-weight: 500; font-size: var(--font-size-sm); }
+  .progress-bar {
+    flex: 1; height: 12px; background: var(--background); border-radius: 999px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background-color: var(--primary);
+    border-radius: 999px;
+    transition: width 0.5s ease, background-color 0.5s ease;
+  }
+  .progress-fill.low { background: var(--green); }
+  .progress-fill.medium { background: var(--yellow); }
+  .progress-fill.high { background: var(--red); }
+  .progress-text {
+    font-size: 0.75rem; color: var(--text-muted); min-width: 35px; text-align: right;
+  }
+
+  .iot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing); }
+  .sensor-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    background: var(--background);
+    border-radius: var(--radius);
+    border: 1px solid var(--border-light);
+  }
+  .sensor-value { font-weight: 600; font-family: 'Monaco', 'Consolas', monospace; }
+
+  .modal {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(0, 0, 0, 0.4); z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .modal .card { width: 400px; max-width: 90vw; margin: 20px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: var(--spacing); }
+  .text-muted { color: var(--text-muted); font-size: var(--font-size-sm); }
+  .text-center { text-align: center; }
+  .hidden { display: none !important; }
+  
+  #notification-container {
+    position: fixed; top: 20px; right: 20px; z-index: 10000;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .notification {
+    padding: 12px 16px; background: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow);
+    border-left: 4px solid var(--primary); animation: fadeInRight 0.3s ease-out;
+  }
+  .notification.success { border-left-color: var(--success); }
+  .notification.error { border-left-color: var(--danger); }
+  @keyframes fadeInRight { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+
+  #qrcode img, #qrcode canvas {
+    margin: auto; border: 4px solid var(--border-light); border-radius: var(--radius);
+  }
+  #ticketDetails p { margin: 8px 0; line-height: 1.4; }
+  #ticketDetails p strong { color: var(--text-muted); }
+  
+  .queue-summary {
+      display: flex; justify-content: space-around; text-align: center; padding: 10px 0;
+  }
+  .summary-item .value { font-size: 2rem; font-weight: 700; color: var(--primary); }
+  .summary-item .label { font-size: var(--font-size-sm); color: var(--text-muted); }
+  
+  .link-button {
+      background: none; border: none; color: var(--primary); cursor: pointer; text-decoration: underline; padding: 0;
+  }
+
+  /* RESPONSIVE DESIGN */
+  @media (max-width: 980px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .header { grid-template-columns: 1fr; text-align: center; gap: 16px; }
+    .header-title, .header-actions { justify-self: center; }
+    #map { height: 340px; }
+  }
+  
+  @media (max-width: 640px) {
+      .iot-grid { grid-template-columns: 1fr; }
+      .header-title h1 { font-size: 1rem; }
+      .temple-switcher h2 { font-size: 1rem; }
+  }
+</style>
+</head>
+<body>
+<div id="appContainer" class="container hidden">
+  <header class="header">
+    <div class="header-title">
+      <h1>Temple Crowd Management</h1>
+      <p>Multi-Temple Dashboard</p>
+    </div>
+    <div class="temple-switcher">
+        <button id="prevTempleBtn" class="btn small">◀</button>
+        <h2 id="currentTempleName"></h2>
+        <button id="nextTempleBtn" class="btn small">▶</button>
+    </div>
+    <div class="header-actions">
+       <div id="welcomeMessage" class="text-muted"></div>
+       <button class="btn" id="themeToggleBtn" aria-label="Toggle light/dark theme">🌙</button>
+       <button class="btn" id="logoutBtn">Logout</button>
+    </div>
+  </header>
+
+  <div class="main-grid">
+    <section>
+      <div class="card">
+        <h3>Live Monitoring Map</h3>
+        <div class="map-controls">
+          <button class="btn active" data-layer="crowd">🌡️ Crowd Density</button>
+          <button class="btn" data-layer="parking">🚗 Parking Status</button>
+          <button class="btn" data-layer="traffic">🚦 Traffic Flow</button>
+          <button class="btn" data-layer="facilities">🏪 Facilities</button>
+        </div>
+        <div id="map" role="application" aria-label="Temple locations map"></div>
+      </div>
+
+      <div class="card admin-only" style="margin-top: 12px;">
+        <h3>IoT Sensors & Surveillance</h3>
+        <div class="iot-grid">
+          <div>
+            <h4 class="text-muted" style="margin-bottom: 8px;">Sensor Network</h4>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div class="sensor-item"><span>Entrance Counter</span><span id="entranceSensor" class="sensor-value">—</span></div>
+              <div class="sensor-item"><span>Queue Monitor</span><span id="queueSensor" class="sensor-value">—</span></div>
+              <div class="sensor-item"><span>Parking Monitor</span><span id="parkingSensor" class="sensor-value">—</span></div>
+            </div>
+          </div>
+          <div>
+            <h4 class="text-muted" style="margin-bottom: 8px;">Camera Feed</h4>
+             <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div class="sensor-item"><span>Main Gate</span><span class="status-chip">🔴 Live</span></div>
+              <div class="sensor-item"><span>Queue Area</span><span class="status-chip">🔴 Live</span></div>
+              <div class="sensor-item"><span>Parking Lot</span><span class="status-chip warning">⚠️ Maint.</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="sidebar">
+      <div class="card">
+        <h3>Crowd Prediction Analytics</h3>
+        <div style="position: relative; height: 170px; width: 100%;"><canvas id="predictionChart"></canvas></div>
+        <div style="display: flex; gap: 8px; margin-top: 12px; align-items: center;">
+          <button class="btn small primary" id="simulatePredictionBtn">🔄 Refresh Prediction</button>
+          <div style="margin-left: auto;" class="text-muted">Peak: <strong id="peakTimeLabel">N/A</strong></div>
+        </div>
+      </div>
+
+      <div class="card user-only">
+        <h3>Smart Queue & E-Ticketing</h3>
+        <div class="mb-2">
+          <input id="visitorNameInput" class="input" placeholder="Enter your name to join" maxlength="50"/>
+        </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+          <button class="btn primary small" id="joinQueueBtn" disabled>➕ Get E-Ticket</button>
+          <button class="btn small" id="leaveQueueBtn">➖ Leave Queue</button>
+        </div>
+        <div class="queue-summary">
+            <div class="summary-item">
+                <div id="queueCount" class="value">0</div>
+                <div class="label">Devotees in Queue</div>
+            </div>
+            <div class="summary-item">
+                <div id="darshanTime" class="value">~0</div>
+                <div class="label">Est. time for Darshan (min)</div>
+            </div>
+        </div>
+      </div>
+
+      <div class="card admin-only">
+        <h3>Live Queue Details</h3>
+        <div class="queue-container" id="adminQueueContainer"></div>
+      </div>
+
+      <div class="card user-only">
+        <h3>Real-time Parking Availability</h3>
+        <div class="parking-item" data-id="north">
+          <div class="parking-label">North Gate</div>
+          <div class="progress-bar"><div class="progress-fill"></div></div>
+          <div class="progress-text"></div>
+        </div>
+        <div class="parking-item" data-id="south">
+          <div class="parking-label">South Gate</div>
+          <div class="progress-bar"><div class="progress-fill"></div></div>
+          <div class="progress-text"></div>
+        </div>
+        <div class="parking-item" data-id="east">
+          <div class="parking-label">East Gate</div>
+          <div class="progress-bar"><div class="progress-fill"></div></div>
+          <div class="progress-text"></div>
+        </div>
+      </div>
+
+      <div class="card admin-only">
+        <h3>Emergency & Accessibility</h3>
+        <h4>Actions</h4>
+        <div style="display:flex;gap:8px; flex-wrap: wrap;">
+          <button class="btn" id="evacBtn" style="background:var(--danger);color:#fff">🚨 Trigger Evac</button>
+          <button class="btn" id="dispatchMedicalBtn">⚕️ Dispatch Medical</button>
+          <button class="btn" id="alertSecurityBtn">🛡️ Alert Security</button>
+        </div>
+        
+        <h4>Responder Status</h4>
+        <div id="responderList" style="display: flex; flex-direction: column; gap: 6px;"></div>
+        
+        <h4>Accessibility Flow</h4>
+        <div style="display:flex;gap:8px;">
+          <button class="btn small" id="showRouteBtn">♿ Show Route</button>
+          <button class="btn small" id="hideRouteBtn">Hide Route</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer class="text-center text-muted" style="margin-top: 12px; line-height: 1.8;">
+    <div>Developed by Akhil & Team • Contact: Akhil</div>
+    <div>Enhanced Temple Management System v3.4</div>
+  </footer>
+</div>
+
+<div id="loginModal" class="modal"><div class="card">
+    <div id="userLoginView">
+        <h3>Devotee Login</h3>
+        <p class="text-muted">Login to access the dashboard. Demo users: (devotee1 / pass123) or (priya / darshan456)</p>
+        <input id="userName" class="input" placeholder="Username" autocomplete="username" style="margin-bottom: 8px;"/>
+        <input id="userPassword" type="password" class="input" placeholder="Password" autocomplete="current-password"/>
+        <div class="modal-actions" style="justify-content: space-between; align-items: center;">
+            <button class="btn primary" id="userLoginBtn">Login</button>
+            <div>
+                <button class="link-button" id="guestLoginBtn">Continue as Guest</button> | 
+                <button class="link-button" id="showAdminLoginBtn">Admin Login</button>
+            </div>
+        </div>
+    </div>
+    <div id="adminLoginView" class="hidden">
+        <h3>Admin Login</h3>
+        <p class="text-muted">Enter department credentials. (admin / admin123)</p>
+        <input id="adminUsername" class="input" placeholder="Admin username" autocomplete="username" style="margin-bottom: 8px;"/>
+        <input id="adminPassword" type="password" class="input" placeholder="Password" autocomplete="current-password"/>
+        <div class="modal-actions" style="justify-content: space-between; align-items: center;">
+            <button class="btn primary" id="adminLoginBtn">Login as Admin</button>
+            <button class="link-button" id="showUserLoginBtn">Back to Devotee Login</button>
+        </div>
+    </div>
+</div></div>
+<div id="ticketModal" class="modal hidden"><div class="card text-center"><h3>Your E-Ticket</h3><p class="text-muted">Show this QR code at the entry gate.</p><div id="qrcode" style="display: flex; justify-content: center; margin: 20px 0;"></div><div id="ticketDetails"><p><strong>Name:</strong> <span id="ticketName"></span></p><p><strong>Ticket ID:</strong> <span id="ticketId"></span></p><p><strong>Position:</strong> <span id="ticketPosition"></span></p></div><button class="btn primary" id="closeTicketModalBtn" style="width: 100%; margin-top: 12px;">Done</button></div></div>
+<div id="notification-container"></div>
+
+<script>
+// Main Application Class
+class TempleApp {
+  constructor() {
+    this.state = {
+      currentUser: null, // null, 'guest', or username
+      currentRole: 'user',
+      currentTemple: 'somnath',
+      currentMapLayer: 'crowd',
+      responders: [
+          { id: 1, role: 'Medic', status: 'Available' },
+          { id: 2, role: 'Security', status: 'Available' }
+      ],
+      templeData: this.getInitialTempleData()
+    };
+    this.utils = new Utils();
+    this.themeManager = new ThemeManager();
+    this.authManager = new AuthManager(this, this.utils);
+    this.roleManager = new RoleManager(this.utils, (role) => this.state.currentRole = role);
+    this.mapManager = new MapManager(this.utils);
+    this.chartManager = new ChartManager();
+    this.queueManager = new QueueManager(this, this.utils);
+    this.sensorManager = new SensorManager(this);
+    this.init();
+  }
+
+  init() {
+    new EventHandlers(this); // Initialize handlers first to capture login events
+    this.authManager.init();
+  }
+  
+  startDashboard() {
+    document.getElementById('loginModal').classList.add('hidden');
+    document.getElementById('appContainer').classList.remove('hidden');
+    
+    // Initialize dashboard components
+    this.roleManager.init();
+    this.themeManager.init();
+    this.mapManager.init();
+    this.chartManager.init(this.getCurrentTempleData().predictionData);
+    this.queueManager.init();
+    this.sensorManager.startSensorUpdates();
+    
+    // Initial UI update
+    this.updateUIForNewTemple();
+    this.updateHeaderUI();
+    
+    console.log('Temple Management System Initialized');
+  }
+
+  getInitialTempleData() {
+      const temples = { somnath: {}, dwarka: {}, ambaji: {}, pavagadh: {} };
+      const templeCoords = { somnath: [20.888, 70.401], dwarka: [22.241, 68.968], ambaji: [24.333, 72.853], pavagadh: [22.4667, 73.5333] };
+      for (const id in temples) {
+          const [lat, lng] = templeCoords[id];
+          temples[id] = {
+              name: `${id.charAt(0).toUpperCase() + id.slice(1)} Temple`,
+              coords: [lat, lng],
+              queue: Array.from({length: Math.floor(Math.random()*15)+5}, (_, i) => ({ id: Date.now() - i*60000, name: `Devotee ${i+1}`, timestamp: Date.now() - i*60000, uniqueId: `TKT-${id.slice(0,2).toUpperCase()}-${Date.now()+i}` })),
+              parking: { north: Math.floor(Math.random()*80)+10, south: Math.floor(Math.random()*80)+10, east: Math.floor(Math.random()*80)+10 },
+              predictionData: Array.from({length: 6}, () => Math.floor(Math.random() * 4000) + 1000),
+              wheelchairRoute: [[lat - 0.001, lng - 0.001], [lat, lng], [lat + 0.001, lng + 0.001]],
+              mapLayers: {
+                  crowd: [ { pos: [lat + 0.001, lng], density: 'high' }, { pos: [lat - 0.0005, lng - 0.001], density: 'medium' } ],
+                  parking: [ { pos: [lat + 0.002, lng + 0.002], name: 'Main Parking' }, { pos: [lat - 0.002, lng - 0.002], name: 'West Parking' } ],
+                  traffic: [ { path: [[lat+0.005, lng-0.005], [lat,lng]], status: 'congested' }, { path: [[lat-0.005, lng+0.005], [lat,lng]], status: 'clear' } ],
+                  facilities: [ { pos: [lat + 0.0005, lng - 0.0005], name: 'First Aid' }, { pos: [lat - 0.0005, lng + 0.0005], name: 'Info Center' } ]
+              }
+          };
+      }
+      return temples;
+  }
+  
+  getCurrentTempleData() { return this.state.templeData[this.state.currentTemple]; }
+
+  changeTemple(direction) {
+      const templeIds = Object.keys(this.state.templeData);
+      let currentIndex = templeIds.indexOf(this.state.currentTemple);
+      if (direction === 'next') currentIndex = (currentIndex + 1) % templeIds.length;
+      else currentIndex = (currentIndex - 1 + templeIds.length) % templeIds.length;
+      this.state.currentTemple = templeIds[currentIndex];
+      this.updateUIForNewTemple();
+      this.utils.showNotification(`Switched to ${this.getCurrentTempleData().name}`, 'info');
+  }
+
+  updateUIForNewTemple() {
+      const data = this.getCurrentTempleData();
+      document.getElementById('currentTempleName').textContent = data.name;
+      this.mapManager.flyToTemple(data.coords);
+      this.mapManager.displayLayer(this.state.currentMapLayer, data.mapLayers);
+      this.mapManager.hideWheelchairRoute();
+      this.queueManager.renderAllViews();
+      this.updateParkingUI(data.parking);
+      this.chartManager.updateForTemple(data.predictionData);
+      this.sensorManager.updateSensorData();
+      this.renderResponders();
+  }
+  
+  updateHeaderUI() {
+      const welcomeEl = document.getElementById('welcomeMessage');
+      if (this.state.currentRole === 'department') {
+          welcomeEl.textContent = 'Welcome, Admin';
+      } else if (this.state.currentUser === 'guest') {
+          welcomeEl.textContent = 'Welcome, Guest';
+      } else {
+          welcomeEl.textContent = `Welcome, ${this.state.currentUser}`;
+      }
+  }
+
+  renderResponders() {
+      const dest = document.getElementById('responderList'); dest.innerHTML = '';
+      this.state.responders.forEach(r => {
+          const d = document.createElement('div'); d.className = 'queue-item';
+          d.innerHTML = `<div>${r.role} (#${r.id})</div><div class="text-muted">${r.status}</div>`;
+          dest.appendChild(d);
+      });
+  }
+
+  updateParkingUI(parkingData) {
+      Object.entries(parkingData).forEach(([id, percentage]) => {
+          const item = document.querySelector(`.parking-item[data-id="${id}"]`); if (!item) return;
+          const fill = item.querySelector('.progress-fill'), text = item.querySelector('.progress-text');
+          fill.style.width = `${percentage}%`; text.textContent = `${percentage}%`;
+          fill.classList.remove('low', 'medium', 'high');
+          if (percentage < 60) fill.classList.add('low');
+          else if (percentage < 90) fill.classList.add('medium');
+          else fill.classList.add('high');
+      });
+  }
+}
+
+// Utility & Manager Classes
+class Utils {
+  showNotification(message, type = 'info', duration = 3000) {
+    const container = document.getElementById('notification-container');
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    container.appendChild(notification);
+    setTimeout(() => notification.remove(), duration);
+  }
+}
+class AuthManager {
+    constructor(app, utils) {
+        this.app = app; this.utils = utils;
+        this.userDB = { "devotee1": "pass123", "priya": "darshan456" };
+    }
+    init() {
+        const sessionUser = sessionStorage.getItem('currentUser');
+        const sessionRole = sessionStorage.getItem('currentRole');
+        if (sessionUser) {
+            this.app.state.currentUser = sessionUser;
+            this.app.state.currentRole = sessionRole;
+            this.app.startDashboard();
+        } else {
+            document.getElementById('loginModal').classList.remove('hidden');
+        }
+    }
+    login(username, password) {
+        if (this.userDB[username] && this.userDB[username] === password) {
+            this.app.state.currentUser = username; this.app.state.currentRole = 'user';
+            sessionStorage.setItem('currentUser', username); sessionStorage.setItem('currentRole', 'user');
+            this.app.startDashboard();
+            this.utils.showNotification(`Welcome back, ${username}!`, 'success');
+        } else { this.utils.showNotification('Invalid devotee credentials.', 'error'); }
+    }
+    adminLogin(username, password) {
+        if (username === 'admin' && password === 'admin123') {
+            this.app.state.currentUser = 'admin'; this.app.state.currentRole = 'department';
+            sessionStorage.setItem('currentUser', 'admin'); sessionStorage.setItem('currentRole', 'department');
+            this.app.startDashboard();
+            this.utils.showNotification('Admin access granted.', 'success');
+        } else { this.utils.showNotification('Invalid admin credentials.', 'error'); }
+    }
+    continueAsGuest() {
+        this.app.state.currentUser = 'guest'; this.app.state.currentRole = 'user';
+        sessionStorage.setItem('currentUser', 'guest'); sessionStorage.setItem('currentRole', 'user');
+        this.app.startDashboard();
+        this.utils.showNotification('Continuing as a guest.', 'info');
+    }
+    logout() { sessionStorage.clear(); window.location.reload(); }
+}
+class ThemeManager {
+    init() {
+        const storedTheme = localStorage.getItem('theme');
+        if (storedTheme === 'dark' || (!storedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark-mode');
+        }
+    }
+    toggleTheme() {
+        const isDark = document.documentElement.classList.toggle('dark-mode');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    }
+}
+class RoleManager {
+  constructor(utils, onRoleChange) { this.utils = utils; this.onRoleChange = onRoleChange; }
+  init() { this.setRole(sessionStorage.getItem('currentRole') || 'user', false); }
+  setRole(role, notify = true) {
+    this.updateUI(role);
+    this.onRoleChange(role);
+    if (notify) this.utils.showNotification(`Switched to ${role} mode`, 'success');
+  }
+  updateUI(role) {
+    document.querySelectorAll('.user-only').forEach(el => el.style.display = role === 'user' ? '' : 'none');
+    document.querySelectorAll('.admin-only').forEach(el => el.style.display = role === 'department' ? '' : 'none');
+  }
+}
+class MapManager {
+  constructor(utils) {
+      this.utils = utils; this.map = null; this.currentLayerGroup = null; this.routeLayer = null;
+  }
+  init() {
+    this.map = L.map('map').setView([22.5, 71.5], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(this.map);
+  }
+  flyToTemple(coords) { if (coords) this.map.flyTo(coords, 15, { duration: 1.5 }); }
+  displayLayer(layerName, layerData) {
+      if (this.currentLayerGroup) this.map.removeLayer(this.currentLayerGroup);
+      const newLayerGroup = L.layerGroup();
+      const data = layerData[layerName] || [];
+      const actions = {
+          crowd: () => data.forEach(d => L.circle(d.pos, { radius: 50, color: {low: 'green', medium: 'orange', high: 'red'}[d.density], fillOpacity: 0.5 }).addTo(newLayerGroup)),
+          parking: () => data.forEach(d => L.marker(d.pos).bindPopup(d.name).addTo(newLayerGroup)),
+          traffic: () => data.forEach(d => L.polyline(d.path, { color: {clear: 'green', congested: 'red'}[d.status], weight: 5 }).addTo(newLayerGroup)),
+          facilities: () => data.forEach(d => L.marker(d.pos).bindPopup(d.name).addTo(newLayerGroup))
+      };
+      if (actions[layerName]) actions[layerName]();
+      this.currentLayerGroup = newLayerGroup.addTo(this.map);
+  }
+  showEvacuationZone(coords) {
+      this.utils.showNotification('Evacuation protocol activated!', 'error', 5000);
+      const evacCircle = L.circle(coords, { radius: 400, color: '#e53e3e', fillOpacity: 0.2 }).addTo(this.map);
+      setTimeout(() => this.map.removeLayer(evacCircle), 10000);
+  }
+  showWheelchairRoute(routeCoords) {
+      if (this.routeLayer) this.map.removeLayer(this.routeLayer);
+      this.routeLayer = L.polyline(routeCoords, { color: '#0b76ff', weight: 6, dashArray: '6 8' }).addTo(this.map);
+      this.map.fitBounds(this.routeLayer.getBounds(), { padding: [40, 40] });
+      this.utils.showNotification('Wheelchair accessible route displayed.', 'info');
+  }
+  hideWheelchairRoute() {
+      if (this.routeLayer) { this.map.removeLayer(this.routeLayer); this.routeLayer = null; }
+  }
+}
+class QueueManager {
+  constructor(app, utils) { this.app = app; this.utils = utils; this.AVG_DARSHAN_TIME_SECONDS = 45; }
+  init() {
+    document.getElementById('visitorNameInput').value = this.app.state.currentUser === 'guest' ? '' : this.app.state.currentUser;
+    this.renderAllViews();
+    setInterval(() => this.processQueue(), 20000);
+  }
+  processQueue() {
+      const queue = this.app.getCurrentTempleData().queue;
+      if (queue.length > 0) {
+          const removed = queue.shift();
+          this.renderAllViews();
+          this.utils.showNotification(`${removed.name} from ${this.app.getCurrentTempleData().name} has entered.`, 'info');
+      }
+  }
+  renderAllViews() { this.renderUserQueueSummary(); this.renderAdminQueueDetails(); }
+  renderUserQueueSummary() {
+      const queueLength = this.app.getCurrentTempleData().queue.length;
+      const waitTimeMinutes = Math.ceil((queueLength * this.AVG_DARSHAN_TIME_SECONDS) / 60);
+      document.getElementById('queueCount').textContent = queueLength;
+      document.getElementById('darshanTime').textContent = `~${waitTimeMinutes}`;
+  }
+  renderAdminQueueDetails() {
+      const container = document.getElementById('adminQueueContainer');
+      container.innerHTML = '';
+      const queue = this.app.getCurrentTempleData().queue;
+      if (queue.length === 0) { container.innerHTML = '<div class="text-muted text-center" style="padding: 20px;">Queue is empty</div>'; return; }
+      queue.forEach((person, index) => {
+          const item = document.createElement('div'); item.className = 'queue-item';
+          item.innerHTML = `<div><strong>${person.name}</strong><div class="text-muted" style="font-size: 0.75rem;">ID: ${person.uniqueId}</div></div><div class="status-chip">#${index + 1}</div>`;
+          container.appendChild(item);
+      });
+  }
+  addToQueue(name) {
+    if (!name || name.trim().length < 2) { this.utils.showNotification('Please enter a valid name', 'error'); return; }
+    const uniqueId = `TKT-${this.app.state.currentTemple.slice(0,2).toUpperCase()}-${Date.now()}`;
+    const newPerson = { id: Date.now(), name: name.trim(), timestamp: Date.now(), uniqueId: uniqueId };
+    this.app.getCurrentTempleData().queue.push(newPerson);
+    this.renderAllViews(); this.showTicketModal(newPerson);
+    if(this.app.state.currentUser !== 'guest') localStorage.setItem('visitorName', name.trim());
+  }
+  removeFromQueue(name) {
+    if (!name) { this.utils.showNotification('Enter name to leave queue.', 'error'); return; }
+    const queue = this.app.getCurrentTempleData().queue;
+    const userIndex = queue.findIndex(p => p.name === name);
+    if (userIndex !== -1) {
+        const removed = queue.splice(userIndex, 1)[0];
+        this.renderAllViews(); this.utils.showNotification(`${removed.name} left the queue`, 'info');
+    } else { this.utils.showNotification('Name not found in queue.', 'error'); }
+  }
+  showTicketModal(person) {
+      const modal = document.getElementById('ticketModal');
+      document.getElementById('ticketName').textContent = person.name;
+      document.getElementById('ticketId').textContent = person.uniqueId;
+      document.getElementById('ticketPosition').textContent = this.app.getCurrentTempleData().queue.length;
+      const qrcodeContainer = document.getElementById('qrcode');
+      qrcodeContainer.innerHTML = '';
+      new QRCode(qrcodeContainer, { text: person.uniqueId, width: 128, height: 128 });
+      modal.classList.remove('hidden');
+  }
+}
+class ChartManager {
+    init(initialData) {
+        const ctx = document.getElementById('predictionChart'); if (!ctx) return;
+        this.chart = new Chart(ctx, { type: 'line', data: { labels: ['Now', '+1h', '+2h', '+3h', '+4h', '+5h'], datasets: [{ label: 'Expected Visitors', data: initialData, borderColor: '#2b8fe6', backgroundColor: 'rgba(43, 143, 230, 0.15)', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: {} } } });
+        this.updatePeakTime(initialData);
+    }
+    updateForTemple(data) {
+        if (!this.chart) return;
+        this.chart.data.datasets[0].data = data; this.chart.update(); this.updatePeakTime(data);
+    }
+    updatePeakTime(data) {
+        const maxIndex = data.indexOf(Math.max(...data));
+        document.getElementById('peakTimeLabel').textContent = ['12PM', '1PM', '2PM', '3PM', '4PM', '5PM'][maxIndex] || 'N/A';
+    }
+}
+class SensorManager {
+  constructor(app) { this.app = app; }
+  updateSensorData() {
+    const data = { entrance: Math.floor(Math.random()*500)+100, queue: this.app.getCurrentTempleData().queue.length, parking: Math.floor(Math.random()*200)+50 };
+    document.getElementById('entranceSensor').textContent = data.entrance;
+    document.getElementById('queueSensor').textContent = data.queue;
+    document.getElementById('parkingSensor').textContent = data.parking;
+  }
+  startSensorUpdates() { setInterval(() => { if (this.app.state.currentRole === 'department') this.updateSensorData(); }, 5000); }
+}
+class EventHandlers {
+  constructor(app) { this.app = app; this.init(); }
+  init() {
+    // Login Modal
+    document.getElementById('userLoginBtn').addEventListener('click', () => this.app.authManager.login(document.getElementById('userName').value.trim(), document.getElementById('userPassword').value));
+    document.getElementById('adminLoginBtn').addEventListener('click', () => this.app.authManager.adminLogin(document.getElementById('adminUsername').value.trim(), document.getElementById('adminPassword').value));
+    document.getElementById('guestLoginBtn').addEventListener('click', () => this.app.authManager.continueAsGuest());
+    document.getElementById('logoutBtn').addEventListener('click', () => this.app.authManager.logout());
+    document.getElementById('showAdminLoginBtn').addEventListener('click', () => { document.getElementById('userLoginView').classList.add('hidden'); document.getElementById('adminLoginView').classList.remove('hidden'); });
+    document.getElementById('showUserLoginBtn').addEventListener('click', () => { document.getElementById('adminLoginView').classList.add('hidden'); document.getElementById('userLoginView').classList.remove('hidden'); });
+    
+    // Main App
+    document.getElementById('prevTempleBtn').addEventListener('click', () => this.app.changeTemple('prev'));
+    document.getElementById('nextTempleBtn').addEventListener('click', () => this.app.changeTemple('next'));
+    document.getElementById('themeToggleBtn').addEventListener('click', () => this.app.themeManager.toggleTheme());
+    document.getElementById('closeTicketModalBtn').addEventListener('click', () => document.getElementById('ticketModal').classList.add('hidden'));
+
+    const nameInput = document.getElementById('visitorNameInput'), joinBtn = document.getElementById('joinQueueBtn');
+    nameInput.addEventListener('input', (e) => joinBtn.disabled = e.target.value.trim().length < 2);
+    nameInput.addEventListener('keypress', (e) => { if (e.key === 'Enter' && !joinBtn.disabled) joinBtn.click(); });
+    joinBtn.addEventListener('click', () => { this.app.queueManager.addToQueue(nameInput.value); nameInput.value = this.app.state.currentUser === 'guest' ? '' : this.app.state.currentUser; joinBtn.disabled = true; });
+    document.getElementById('leaveQueueBtn').addEventListener('click', () => this.app.queueManager.removeFromQueue(nameInput.value));
+    
+    document.querySelectorAll('.map-controls .btn[data-layer]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.map-controls .btn.active').forEach(b => b.classList.remove('active'));
+            const target = e.currentTarget; target.classList.add('active');
+            this.app.state.currentMapLayer = target.dataset.layer;
+            this.app.mapManager.displayLayer(this.app.state.currentMapLayer, this.app.getCurrentTempleData().mapLayers);
+        });
+    });
+
+    // Admin Emergency Controls
+    document.getElementById('evacBtn').addEventListener('click', () => this.app.mapManager.showEvacuationZone(this.app.getCurrentTempleData().coords));
+    document.getElementById('dispatchMedicalBtn').addEventListener('click', () => {
+        const medic = this.app.state.responders.find(r => r.role === 'Medic');
+        if (medic) { medic.status = 'Deployed'; this.app.renderResponders(); this.app.utils.showNotification('Medical team dispatched', 'success'); }
+    });
+     document.getElementById('alertSecurityBtn').addEventListener('click', () => {
+        const security = this.app.state.responders.find(r => r.role === 'Security');
+        if (security) { security.status = 'Alerted'; this.app.renderResponders(); this.app.utils.showNotification('Security team alerted', 'warning'); }
+    });
+    document.getElementById('showRouteBtn').addEventListener('click', () => this.app.mapManager.showWheelchairRoute(this.app.getCurrentTempleData().wheelchairRoute));
+    document.getElementById('hideRouteBtn').addEventListener('click', () => this.app.mapManager.hideWheelchairRoute());
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => { window.templeApp = new TempleApp(); });
+</script>
+</body>
+</html>
