@@ -1,7 +1,3 @@
-Of course. Here is a comprehensive `README.md` file designed for a full-stack project, covering both the frontend and the backend.
-
------
-
 # Temple & Pilgrimage Crowd Management (Full-Stack)
 
 This is a full-stack solution for the **"Temple & Pilgrimage Crowd Management"** problem statement. It includes a backend API and a frontend user interface to provide a complete system for managing crowds at pilgrimage sites like Somnath, Dwarka, and others.
